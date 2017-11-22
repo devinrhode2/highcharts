@@ -137,24 +137,6 @@
 
     });
     */
-    /*
-    QUnit.test('IsNumber', function (assert) {
-        // test with undefined
-        assertEquals(assert, "IsNumber undefined", false, isNumber(undefined));
-
-        // test with null
-        assertEquals(assert, "IsNumber null", false, isNumber(null));
-
-        // test with number
-        assertEquals(assert, "IsNumber number", true, isNumber(15));
-
-        // test with string
-        assertEquals(assert, "IsNumber string", false, isNumber("this is a string"));
-
-        // test with object
-        assertEquals(assert, "IsNumber object", false, isNumber({}));
-    });
-    */
     QUnit.test('Splat', function (assert) {
 
         // test with undefined
@@ -249,6 +231,7 @@
      * Test number formatting
      */
     QUnit.test('NumberFormat', function (assert) {
+        var i;
 
         assertEquals(assert, 'Integer with decimals', "1.00", numberFormat(1, 2));
         assertEquals(assert, 'Integer with decimal point', "1,0", numberFormat(1, 1, ','));
@@ -275,6 +258,32 @@
         assertEquals(assert, 'Exponential', "3,20e+22", numberFormat(32000000000000000000000, 2, ','));
         assertEquals(assert, 'Exponential', "3e+22", numberFormat(30000000000000000000000, 0));
         assertEquals(assert, 'Exponential', "1.5e+36", numberFormat(1.5e+36, -1));
+
+        assertEquals(
+            assert,
+            'Decimals limit with exponential (#7042)',
+            '0.00',
+            numberFormat(1.5e-9, 2)
+        );
+
+        // small numbers with set decimals (#7405)
+        for (i = 7; i < 11; i++) {
+            assertEquals(
+                assert,
+                'Decimals = ' + i + ' - precision to ' + i + 'th digit after .',
+                ['0.0000000', '0.00000000', '2e-9', '1.9e-9'][i - 7],
+                numberFormat(1.9e-9, i)
+            );
+        }
+
+        for (i = 6; i < 10; i++) {
+            assertEquals(
+                assert,
+                'Decimals = ' + i + ' - precision to ' + i + 'th digit after .',
+                ['0.000001', '6e-7', '6.3e-7', '6.26e-7'][i - 6],
+                numberFormat(6.26e-7, i)
+            );
+        }
     });
 
 
@@ -565,6 +574,16 @@
             isNumber(-1.123),
             true,
             'negative number with decimals (-1.123) returns true'
+        );
+        assert.strictEqual(
+            isNumber(Infinity),
+            false,
+            'Infinity is not a finite number'
+        );
+        assert.strictEqual(
+            isNumber(-Infinity),
+            false,
+            '-Infinity is not a finite number'
         );
     });
 

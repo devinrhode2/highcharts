@@ -164,9 +164,11 @@ H.Fx.prototype = {
 					setTimeout(step, 13);
 				},
 			step = function () {
-				H.timers = H.grep(H.timers, function (timer) {
-					return timer();
-				});
+				for (var i = 0; i < H.timers.length; i++) {
+					if (!H.timers[i]()) {
+						H.timers.splice(i--, 1);
+					}
+				}
 
 				if (H.timers.length) {
 					requestAnimationFrame(step);
@@ -456,9 +458,9 @@ H.extend = function (a, b) {
  * @function #merge
  * @memberOf Highcharts
  * @param {Boolean} [extend] - Whether to extend the left-side object (a) or
-          return a whole new object.
+		  return a whole new object.
  * @param {Object} a - The first object to extend. When only this is given, the
-          function returns a deep copy.
+		  function returns a deep copy.
  * @param {...Object} [n] - An object to merge into the previous one.
  * @returns {Object} - The merged object. If the first argument is true, the 
  * return is the same as the second argument.
@@ -483,7 +485,7 @@ H.merge = function () {
 						!H.isDOMElement(value)
 				) {
 					copy[key] = doCopy(copy[key] || {}, value);
-          
+
 				// Primitives and arrays are copied over directly
 				} else {
 					copy[key] = original[key];
@@ -587,15 +589,18 @@ H.isClass = function (obj) {
 };
 
 /**
- * Utility function to check if an item is of type number.
+ * Utility function to check if an item is a number and it is finite (not NaN,
+ * Infinity or -Infinity).
  *
  * @function #isNumber
  * @memberOf Highcharts
- * @param {Object} n - The item to check.
- * @returns {Boolean} - True if the item is a number and is not NaN.
+ * @param  {Object} n
+ *         The item to check.
+ * @return {Boolean}
+ *         True if the item is a finite number
  */
 H.isNumber = function (n) {
-	return typeof n === 'number' && !isNaN(n);
+	return typeof n === 'number' && !isNaN(n) && n < Infinity && n > -Infinity;
 };
 
 /**
@@ -1413,13 +1418,36 @@ H.numberFormat = function (number, decimals, decimalPoint, thousandsSep) {
 		thousands,
 		ret,
 		roundedNumber,
-		exponent = number.toString().split('e');
+		exponent = number.toString().split('e'),
+		fractionDigits;
 
 	if (decimals === -1) {
 		// Preserve decimals. Not huge numbers (#3793).
 		decimals = Math.min(origDec, 20);
 	} else if (!H.isNumber(decimals)) {
 		decimals = 2;
+	} else if (decimals && exponent[1] && exponent[1] < 0) {
+		// Expose decimals from exponential notation (#7042)
+		fractionDigits = decimals + +exponent[1];
+		if (fractionDigits >= 0) {
+			// remove too small part of the number while keeping the notation
+			exponent[0] = (+exponent[0]).toExponential(fractionDigits)
+				.split('e')[0];
+			decimals = fractionDigits;
+		} else {
+			// fractionDigits < 0
+			exponent[0] = exponent[0].split('.')[0] || 0;
+
+			if (decimals < 20) {
+				// use number instead of exponential notation (#7405)
+				number = (exponent[0] * Math.pow(10, exponent[1]))
+					.toFixed(decimals);
+			} else {
+				// or zero
+				number = 0;
+			}
+			exponent[1] = 0;
+		}
 	}
 
 	// Add another decimal to avoid rounding errors of float numbers. (#4573)
@@ -1457,7 +1485,7 @@ H.numberFormat = function (number, decimals, decimalPoint, thousandsSep) {
 		ret += decimalPoint + roundedNumber.slice(-decimals);
 	}
 
-	if (exponent[1]) {
+	if (exponent[1] && +ret !== 0) {
 		ret += 'e' + exponent[1];
 	}
 
